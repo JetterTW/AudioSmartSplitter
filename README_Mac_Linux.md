@@ -59,18 +59,39 @@ chmod +x run.sh
 
 ## 方案二：Docker 容器一鍵啟動 (免裝 Python 與 FFmpeg)
 
-若您的電腦已安裝 Docker，可完全無需在本機配置任何環境：
+使用 Docker 的最大好處是**完全不需要在主機安裝 Python 或 FFmpeg**，容器內部已封裝所有環境！
 
+### 1. 安裝 Docker（若電腦尚未安裝）
+* **🍏 macOS**：前往官網下載安裝 [Docker Desktop for Mac](https://www.docker.com/products/docker-desktop/)（選擇 Apple Silicon 或 Intel），安裝完成後打開 Docker Desktop 即可。
+* **🐧 Linux (Ubuntu / Debian)**：
+  ```bash
+  sudo apt update && sudo apt install -y docker.io docker-compose-v2
+  sudo usermod -aG docker $USER
+  newgrp docker
+  ```
+
+### 2. 下載專案並啟動
 ```bash
-# 啟動容器 (自動編譯、自帶 FFmpeg)
+# 1. 複製專案庫
+git clone https://github.com/JetterTW/AudioSmartSplitter.git
+cd AudioSmartSplitter
+
+# 2. 一鍵啟動容器 (首次執行會自動下載 Linux Python 映像檔並安裝 FFmpeg)
 docker compose up -d
 ```
 
 啟動後直接在瀏覽器打開：  
 👉 **http://127.0.0.1:8128**
 
-若要停止容器：
+### 3. 常用維護指令
 ```bash
+# 查看即時日誌
+docker compose logs -f
+
+# 重啟服務
+docker compose restart
+
+# 停止服務
 docker compose down
 ```
 

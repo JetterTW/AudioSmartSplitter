@@ -134,16 +134,79 @@ chmod +x run.sh
 
 ---
 
-### 🐳 Docker 跨平台一鍵容器啟動 (Mac / Linux / Windows 通用)
+---
 
-若您的電腦已安裝 Docker，可完全無需在主機配置 Python 或 FFmpeg：
+### 🐳 Docker 跨平台一鍵容器化教學 (Mac / Linux / Windows 通用)
 
+使用 Docker 的最大優勢是**完全免配置環境**：主機上**不需要安裝 Python、不需要安裝 FFmpeg、不需要手動下載任何依賴套件**，容器會全自動在內部封裝好一切！
+
+#### 步驟 1：下載與安裝 Docker（若電腦尚未安裝）
+
+請依據您的作業系統下載對應的 Docker 官方安裝軟體：
+
+* 🍏 **macOS**：
+  1. 前往官方頁面下載 [Docker Desktop for Mac](https://www.docker.com/products/docker-desktop/)（依據您的 Mac 機型點選 **Apple Silicon (M1/M2/M3/M4)** 或 **Intel chip**）。
+  2. 雙擊開啟下載的 `.dmg` 檔，將 Docker 圖示拖曳進 `Applications`（應用程式）資料夾中。
+  3. 從應用程式中啟動 **Docker**，等待上方狀態列出現綠色「Engine running」即可。
+* 🪟 **Windows**：
+  1. 前往官方頁面下載 [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/)。
+  2. 執行安裝檔，安裝過程中請確保勾選 **Use WSL 2 instead of Hyper-V (recommended)**。
+  3. 安裝完成後開啟 Docker Desktop，等待左下角狀態顯示綠燈「Engine running」。
+* 🐧 **Linux (Ubuntu / Debian)**：
+  ```bash
+  sudo apt update
+  sudo apt install -y docker.io docker-compose-v2
+  # 允許目前使用者直接執行 docker (免每次打 sudo)
+  sudo usermod -aG docker $USER
+  newgrp docker
+  ```
+
+---
+
+#### 步驟 2：下載本專案原始碼
+
+在終端機 (Terminal / PowerShell / CMD) 中輸入以下指令下載專案：
 ```bash
-# 啟動容器 (自動建構鏡像並背景常駐)
+git clone https://github.com/JetterTW/AudioSmartSplitter.git
+cd AudioSmartSplitter
+```
+
+---
+
+#### 步驟 3：一鍵啟動 Docker 容器
+
+在專案目錄下執行：
+```bash
 docker compose up -d
 ```
-啟動後直接在瀏覽器開啟：👉 **http://127.0.0.1:8128**  
-停止服務只需執行：`docker compose down`
+
+> 💡 **自動下載與建置說明（完全免手動）**：  
+> 第一次執行此指令時，Docker 會**全自動在背景完成以下所有下載與安裝**：
+> 1. 自動從 Docker Hub 拉取官方 Linux Python 映像檔 (`python:3.11-slim`)。
+> 2. 自動於容器內執行 `apt-get install -y ffmpeg`（自帶完整音訊轉碼核心）。
+> 3. 自動依據 `requirements.txt` 安裝 FastAPI、Uvicorn、NumPy、Pillow 等函式庫。
+> 
+> 初次構建約需 1～2 分鐘（視網速而定），建構完成後日後再次啟動只需 1 秒鐘！
+
+---
+
+#### 步驟 4：開始使用與維護指令
+
+容器啟動後，直接打開瀏覽器造訪：  
+👉 **http://127.0.0.1:8128**（或同區域網路其他裝置輸入 `http://<主機IP>:8128`）即可開始使用！
+
+* **常用維護指令**：
+  ```bash
+  # 查看即時後端運作日誌
+  docker compose logs -f
+
+  # 重新啟動容器服務
+  docker compose restart
+
+  # 停止並退出容器
+  docker compose down
+  ```
+  *(音訊暫存檔、工作檔與匯出成品皆透過 Volume 自動掛載於本機資料夾，關閉容器資料絕不遺失)*
 
 ---
 
