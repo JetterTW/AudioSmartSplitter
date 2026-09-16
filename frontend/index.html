@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audio Smart Splitter v1.0.1 - 智慧歌詞斷句音訊切片工作站</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="alternate icon" type="image/png" href="favicon-32.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="stylesheet" href="style.css">
+  <!-- 本地 WaveSurfer.js + Plugins -->
+  <script src="libs/wavesurfer.min.js"></script>
+  <script src="libs/timeline.min.js"></script>
+  <script src="libs/regions.min.js"></script>
+</head>
+<body>
+  <div class="app-container">
+    <!-- 頂部導航欄 -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-icon">
+          <img src="favicon.png" alt="Audio Smart Splitter" width="44" height="44">
+        </div>
+        <div>
+          <div class="brand-title-wrap">
+            <h1>Audio Smart Splitter</h1>
+            <span class="version-badge">v1.0.1</span>
+          </div>
+          <span class="subtitle">AI 智慧歌詞保護切片工作站 (MP3 / WAV / M4A)</span>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <div class="project-actions">
+          <button class="btn btn-small btn-primary" id="saveProjectBtn" title="另存新檔：將當前工作狀態儲存為 .json / .assp 工作檔">
+            💾 儲存工作檔
+          </button>
+          <button class="btn btn-small btn-outline" id="importProjectBtn" title="開啟舊檔：從電腦選取 .json / .assp 工作檔還原">
+            📂 開啟工作檔
+          </button>
+          <input type="file" id="projectFileInput" accept=".json,.assp" style="display: none;">
+        </div>
+
+        <div class="header-status" id="headerStatus">
+          <span class="status-badge ready">系統就緒</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- 主工作區 -->
+    <main class="main-content">
+      <!-- 步驟 1: 上傳與參數設定列 -->
+      <section class="panel control-panel">
+        <div class="panel-header">
+          <h2>1. 匯入音訊與切片參數</h2>
+        </div>
+        <div class="control-grid">
+          <!-- 上傳區塊與已上傳檔案清單 -->
+          <div class="upload-column">
+            <div class="upload-box" id="dropZone">
+              <input type="file" id="audioFileInput" accept=".mp3,.wav,.m4a,.aac,.flac,.ogg" style="display: none;">
+              <div class="upload-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+              </div>
+              <div class="upload-text">
+                <span class="upload-title" id="uploadTitle">點擊或將音訊檔拖曳至此</span>
+                <span class="upload-desc">支援 MP3, WAV, M4A, AAC, FLAC 等格式</span>
+              </div>
+              <button class="btn btn-outline" id="browseBtn" type="button">選擇新檔案</button>
+            </div>
+
+            <!-- 已上傳檔案歷史面板 -->
+            <div class="uploaded-history-card" id="uploadedHistoryCard">
+              <div class="history-header">
+                <span class="history-title">📁 已上傳音訊庫 (<span id="uploadCountBadge">0</span>)</span>
+                <button type="button" class="btn-tiny" id="refreshUploadsBtn" title="重新整理檔案清單">🔄 刷新</button>
+              </div>
+              <div class="history-list" id="uploadedHistoryList">
+                <div class="history-empty">目前沒有已上傳的音訊</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 參數設定卡片 -->
+          <div class="params-card">
+            <div class="form-group">
+              <label for="targetDurationInput">
+                目標片段秒數：<strong id="targetDurationVal">20</strong> 秒
+              </label>
+              <div class="slider-row">
+                <input type="range" id="targetDurationSlider" min="5" max="120" value="20" step="1">
+                <input type="number" id="targetDurationInput" min="5" max="300" value="20" class="input-number">
+              </div>
+              <small class="help-text">演算法會在此秒數附近的歌詞停頓/空隙下刀，確保不切斷語句。</small>
+            </div>
+
+            <div class="form-group">
+              <label for="detectMode">斷句偵測演算法：</label>
+              <select id="detectMode" class="form-select">
+                <option value="vad" selected>快速人聲靜音間隔偵測 (VAD - 極速秒出)</option>
+                <option value="whisper">Whisper AI 語音/歌詞時間軸辨識</option>
+                <option value="srt">匯入 SRT 字幕/歌詞檔案 (.srt)</option>
+                <option value="lrc">匯入 LRC 歌詞檔案 (.lrc)</option>
+              </select>
+            </div>
+
+            <!-- 字幕/歌詞檔案匯入與輸入展開區 (預設隱藏) -->
+            <div class="form-group" id="lyricFileContainer" style="display: none;">
+              <div class="space-between" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <label for="lyricTextInput" id="lyricInputLabel" style="margin-bottom: 0;">SRT 字幕內容：</label>
+                <div style="display: flex; gap: 6px;">
+                  <button type="button" class="btn btn-small btn-outline" id="chooseLyricFileBtn">
+                    📂 選取新字幕檔
+                  </button>
+                  <input type="file" id="lyricFileInput" accept=".srt,.lrc,.txt" style="display: none;">
+                </div>
+              </div>
+
+              <!-- 已上傳字幕庫下拉選單 -->
+              <div class="saved-lyrics-row" id="savedLyricsRow" style="display: flex; gap: 6px; align-items: center; margin-bottom: 6px;">
+                <select id="savedLyricsSelect" class="form-select" style="flex: 1; font-size: 0.8rem; padding: 6px 10px;">
+                  <option value="">📁 從已上傳字幕庫選取 (0)...</option>
+                </select>
+                <button type="button" class="btn-tiny btn-tiny-danger" id="deleteLyricBtn" title="刪除選取的字幕檔" style="display: none; height: 32px; padding: 0 10px;">
+                  🗑️
+                </button>
+              </div>
+
+              <textarea id="lyricTextInput" rows="3" class="form-textarea" placeholder="可點擊上方按鈕選取 .srt 或 .lrc 檔，或直接在此貼上內容"></textarea>
+            </div>
+
+            <div class="action-btn-row">
+              <button class="btn btn-primary" id="analyzeBtn" disabled>
+                <span class="btn-icon">⚡</span> 執行智慧避詞分析
+              </button>
+              <button class="btn btn-secondary" id="recalcBtn" style="display: none;">
+                🔄 依新秒數重算切點
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 音訊資訊標籤條 (上傳後顯示) -->
+        <div class="audio-info-bar" id="audioInfoBar" style="display: none;">
+          <div class="info-item">
+            <span class="info-label">檔案名稱:</span>
+            <span class="info-value" id="infoFilename">-</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">總長度:</span>
+            <span class="info-value" id="infoDuration">-</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">採樣率:</span>
+            <span class="info-value" id="infoSampleRate">-</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">偵測句子數:</span>
+            <span class="info-value text-accent" id="infoSentenceCount">0 句</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">建議切點數:</span>
+            <span class="info-value text-success" id="infoCutCount">0 處</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 步驟 2: 視覺化波形編輯工作台 -->
+      <section class="panel editor-panel" id="editorPanel">
+        <div class="panel-header space-between">
+          <div class="editor-header-left">
+            <h2>2. 視覺化波形與切點微調</h2>
+            <div class="legend">
+              <span class="legend-item"><span class="legend-dot sentence-dot"></span> 歌詞/語句區間 (不可切斷)</span>
+              <span class="legend-item"><span class="legend-dot cut-dot"></span> ✂️ 切割點 (可左右拖拉)</span>
+            </div>
+          </div>
+          
+          <!-- 工具列 -->
+          <div class="editor-toolbar">
+            <label class="toggle-switch" title="拖拉切點時自動吸附在歌詞間隔中央，防止手殘切到字">
+              <input type="checkbox" id="snapGapToggle" checked>
+              <span class="toggle-slider"></span>
+              <span class="toggle-label">🧲 智慧吸附空隙</span>
+            </label>
+
+            <button class="btn btn-small btn-outline" id="addCutAtCursorBtn" title="在目前播放游標處加入切點">
+              ➕ 在游標處下刀
+            </button>
+            <button class="btn btn-small btn-danger-outline" id="clearAllCutsBtn" title="清除所有切點">
+              🗑️ 清空切點
+            </button>
+            <button class="btn btn-small btn-outline" id="resetWorkspaceBtn" title="重設並清空工作區暫存紀錄" style="display: none;">
+              🔄 重設工作區
+            </button>
+          </div>
+        </div>
+
+        <!-- 波形與軌道容器 -->
+        <div class="waveform-container" id="waveformContainer">
+          <div id="timeline"></div>
+          <div id="waveform"></div>
+        </div>
+
+        <!-- 播放控制桿與縮放控制 -->
+        <div class="player-controls">
+          <div class="playback-buttons">
+            <button class="btn-circle" id="playPauseBtn" title="播放 / 暫停 (快捷鍵: 空白鍵)">
+              <svg id="playIcon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+              <svg id="pauseIcon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display: none;">
+                <rect x="6" y="4" width="4" height="16"></rect>
+                <rect x="14" y="4" width="4" height="16"></rect>
+              </svg>
+            </button>
+            <button class="btn-icon-only" id="stopBtn" title="停止並返回開頭">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="4" y="4" width="16" height="16"></rect>
+              </svg>
+            </button>
+            <div class="time-display">
+              <span id="currentTime">00:00.00</span> / <span id="totalTime">00:00.00</span>
+            </div>
+          </div>
+
+          <div class="zoom-controls">
+            <span class="zoom-label">🔍 縮放時間軸:</span>
+            <input type="range" id="zoomSlider" min="10" max="250" value="30" step="5">
+          </div>
+        </div>
+
+        <!-- 編輯小撇步提示 -->
+        <div class="tips-banner">
+          💡 <strong>操作提示：</strong>
+          您可以<strong>直接用滑鼠拖拉紅色的切點</strong>微調時間；點選切點上的 <strong>✕</strong> 可刪除；在波形任意空白處 <strong>Shift + 點擊</strong> 即可新增切點。
+        </div>
+      </section>
+
+      <!-- 步驟 3: 片段清單預覽與批次匯出 -->
+      <section class="panel export-panel" id="exportPanel">
+        <div class="panel-header space-between">
+          <h2>3. 切片預覽與批次匯出</h2>
+          <div class="export-settings">
+            <label for="exportFormat">匯出格式：</label>
+            <select id="exportFormat" class="form-select form-select-sm">
+              <option value="mp3" selected>MP3 (320 kbps 高音質)</option>
+              <option value="wav">WAV (原始無損 PCM)</option>
+              <option value="m4a">M4A (AAC 256 kbps)</option>
+            </select>
+
+            <label for="customPrefix">自訂檔名前綴：</label>
+            <input type="text" id="customPrefix" class="form-input form-input-sm" placeholder="預設使用原檔名">
+
+            <button class="btn btn-success" id="exportBtn" disabled>
+              📦 批次切片並下載 ZIP
+            </button>
+          </div>
+        </div>
+
+        <!-- 切片清單表格 -->
+        <div class="segments-list-container">
+          <div class="table-responsive">
+            <table class="segments-table">
+              <thead>
+                <tr>
+                  <th class="col-num">序號</th>
+                  <th class="col-name">片段名稱</th>
+                  <th class="col-time">起始時間</th>
+                  <th class="col-time">結束時間</th>
+                  <th class="col-dur">片段長度</th>
+                  <th class="col-lyric">涵蓋歌詞 / 語句</th>
+                  <th class="col-action">操作 / 試聽</th>
+                </tr>
+              </thead>
+              <tbody id="segmentsTableBody">
+                <tr>
+                  <td colspan="7" class="empty-hint">尚未產生切點，請先上傳音訊並點選「執行智慧避詞分析」</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- 匯出中 / 載入中 Modal -->
+    <div class="modal-overlay" id="loadingModal" style="display: none;">
+      <div class="modal-card">
+        <div class="spinner"></div>
+        <h3 id="modalTitle">正在處理中...</h3>
+        <p id="modalDesc">正在分析人聲語句並計算切點，請稍候...</p>
+      </div>
+    </div>
+
+    <!-- 全視窗拖曳上傳提示遮罩 -->
+    <div class="global-drag-overlay" id="globalDragOverlay">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="17 8 12 3 7 8"></polyline>
+        <line x1="12" y1="3" x2="12" y2="15"></line>
+      </svg>
+      <h2>放開滑鼠即可匯入音訊檔</h2>
+      <p>支援 MP3, WAV, M4A, AAC, FLAC 等格式</p>
+    </div>
+
+    <!-- 頁尾版本資訊 -->
+    <footer class="app-footer">
+      <span>Audio Smart Splitter <strong>v1.0.1</strong> · AI 智慧音訊切片工作站</span>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

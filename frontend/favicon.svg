@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="50%" stop-color="#1e1b4b" />
+      <stop offset="100%" stop-color="#090d16" />
+    </linearGradient>
+    <linearGradient id="waveLeft" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#06b6d4" />
+      <stop offset="100%" stop-color="#d946ef" />
+    </linearGradient>
+    <linearGradient id="waveRight" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#06b6d4" />
+    </linearGradient>
+    <linearGradient id="laserGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.2" />
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="1" />
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.2" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.5" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#bgGrad)" stroke="#38bdf8" stroke-opacity="0.3" stroke-width="1.5" />
+  <circle cx="32" cy="32" r="22" fill="#6366f1" fill-opacity="0.15" filter="url(#glow)" />
+
+  <g fill="url(#waveLeft)">
+    <rect x="9" y="27" width="2.5" height="10" rx="1.2" />
+    <rect x="13" y="21" width="2.5" height="22" rx="1.2" />
+    <rect x="17" y="15" width="2.5" height="34" rx="1.2" />
+    <rect x="21" y="23" width="2.5" height="18" rx="1.2" />
+    <rect x="25" y="12" width="2.5" height="40" rx="1.2" />
+  </g>
+
+  <g fill="url(#waveRight)">
+    <rect x="36.5" y="14" width="2.5" height="36" rx="1.2" />
+    <rect x="40.5" y="22" width="2.5" height="20" rx="1.2" />
+    <rect x="44.5" y="17" width="2.5" height="30" rx="1.2" />
+    <rect x="48.5" y="24" width="2.5" height="16" rx="1.2" />
+    <rect x="52.5" y="28" width="2.5" height="8" rx="1.2" />
+  </g>
+
+  <line x1="31" y1="6" x2="31" y2="58" stroke="#38bdf8" stroke-width="2.5" stroke-opacity="0.6" filter="url(#glow)" />
+  <line x1="31" y1="6" x2="31" y2="58" stroke="url(#laserGrad)" stroke-width="1.5" stroke-linecap="round" />
+</svg>

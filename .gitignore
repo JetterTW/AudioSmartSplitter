@@ -1,0 +1,41 @@
+# Python 虛擬環境
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Byte-compiled / 快取檔
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# 執行檔打包產物
+build/
+dist/
+*.spec
+bin/*.exe
+AudioSmartSplitter_Portable/
+AudioSmartSplitter_綠色免安裝版/
+AudioSmartSplitter_Mac_Linux_可攜開箱版/
+*.zip
+
+# 執行階段使用者資料與暫存檔
+uploads/
+!uploads/.gitkeep
+outputs/
+!outputs/.gitkeep
+projects/
+!projects/.gitkeep
+
+# 作業系統暫存檔
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/

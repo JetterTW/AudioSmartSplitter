@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  audio-smart-splitter:
+    build: .
+    container_name: audio-smart-splitter
+    ports:
+      - "8128:8128"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./projects:/app/projects
+      - ./outputs:/app/outputs
+    restart: unless-stopped
