@@ -1,6 +1,6 @@
-# 🎵 Audio Smart Splitter v1.0.1 - 智慧歌詞斷句音訊切片工作站
+# 🎵 Audio Smart Splitter v1.1.2 - 智慧歌詞斷句音訊切片工作站
 
-[![Version](https://img.shields.io/badge/version-1.0.1-blue.svg)](https://github.com/JetterTW/AudioSmartSplitter/releases)
+[![Version](https://img.shields.io/badge/version-1.1.2-blue.svg)](https://github.com/JetterTW/AudioSmartSplitter/releases)
 [![Python](https://img.shields.io/badge/python-3.9+-brightgreen.svg)](https://www.python.org/)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/JetterTW/AudioSmartSplitter)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
