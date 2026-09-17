@@ -210,6 +210,70 @@ docker compose up -d
 
 ---
 
+## 🔄 系統更新升級指南 (How to Update)
+
+當本專案發布新版本或新增功能時，請依照您當初所採用的執行方式進行更新升級：
+
+### 方案 A：Docker 容器環境更新 (Linux / macOS / Windows)
+
+如果已在 Linux 或其他系統上使用 Docker 執行，更新非常迅速且**完全不會影響已上傳的音樂或工作檔**（所有資料均掛載於本地目錄）：
+
+1. 進入專案目錄：
+   ```bash
+   cd AudioSmartSplitter
+   ```
+2. 拉取最新代碼：
+   ```bash
+   git pull
+   ```
+3. 重新建置映像檔並在背景重啟容器（**務必加上 `--build`** 以確保容器載入最新代碼）：
+   ```bash
+   docker compose up -d --build
+   ```
+   *(舊版 Docker 請使用 `docker-compose up -d --build`)*
+
+⚡ **一行自動更新指令（懶人包）**：
+```bash
+git pull && docker compose up -d --build
+```
+
+---
+
+### 方案 B：Git Clone 原始碼 / 虛擬環境更新
+
+若當初是透過 `git clone` 並使用本機 Python 虛擬環境執行：
+
+* **🐧 Linux / 🍏 macOS**：
+  ```bash
+  cd AudioSmartSplitter
+  git pull
+  ./run.sh
+  ```
+  *(腳本會自動激活虛擬環境、檢查並安裝最新依賴，然後重新啟動服務)*
+
+* **🪟 Windows**：
+  ```cmd
+  cd AudioSmartSplitter
+  git pull
+  run.bat
+  ```
+
+---
+
+### 方案 C：免安裝綠色版 / 可攜壓縮包更新 (ZIP 下載)
+
+若使用的是直接下載的開箱壓縮包（如 `AudioSmartSplitter_綠色免安裝可攜版.zip` 或 `AudioSmartSplitter_Mac_Linux_可攜開箱版.zip`）：
+
+1. 從 GitHub Releases 或倉庫下載最新版的 ZIP 壓縮檔。
+2. 解壓縮新版本。
+3. **保留舊資料**：將舊版本資料夾中的以下資料夾複製到新版本資料夾中，即可無縫保留所有歷史資料：
+   - `uploads/`：已上傳的音訊與字幕庫
+   - `projects/`：已儲存的專案工作檔
+   - `outputs/`：切片成品輸出檔
+4. 點擊 `AudioSmartSplitter.exe` (Windows) 或 `./run.sh` (Mac/Linux) 即可使用最新版！
+
+---
+
 ## 🌐 區域網路 (LAN) 跨裝置存取
 
 服務預設監聽 `0.0.0.0:8128`。只要同一區域網路（同 Wi-Fi）下的其他裝置，在瀏覽器輸入主機的 IP 即可遠端使用：

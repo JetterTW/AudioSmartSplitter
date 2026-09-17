@@ -97,6 +97,25 @@ docker compose down
 
 ---
 
+## 🔄 如何更新升級 (How to Update)
+
+### 方案 A：Docker 容器更新
+若使用 Docker 執行，所有音訊與專案檔案皆已掛載於主機，升級**完全不會遺失資料**：
+```bash
+cd AudioSmartSplitter
+git pull && docker compose up -d --build
+```
+*(加上 `--build` 參數確保映像檔重新打包最新前後端代碼)*
+
+### 方案 B：原生腳本 / Git Clone 更新
+```bash
+cd AudioSmartSplitter
+git pull
+./run.sh
+```
+
+---
+
 ## 🌟 核心功能
 - **避詞智慧切片**：同一句歌詞絕不切斷，支援 VAD 能量間隔、SRT 字幕、LRC 歌詞或 Whisper 辨識。
 - **DAW 專業波形視覺化**：WaveSurfer.js 雙軌波形 + 獨立歌詞軌道，可直接拖曳切點、增刪切點與智慧吸附。
