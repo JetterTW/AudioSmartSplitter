@@ -65,6 +65,7 @@ const dom = {
   resetWorkspaceBtn: document.getElementById("resetWorkspaceBtn"),
   exportFormat: document.getElementById("exportFormat"),
   customPrefix: document.getElementById("customPrefix"),
+  exportSrtToggle: document.getElementById("exportSrtToggle"),
   exportBtn: document.getElementById("exportBtn"),
   segmentsTableBody: document.getElementById("segmentsTableBody"),
   loadingModal: document.getElementById("loadingModal"),
@@ -144,6 +145,7 @@ function saveAppState() {
         savedLyricId: dom.savedLyricsSelect ? dom.savedLyricsSelect.value : "",
         customPrefix: dom.customPrefix ? dom.customPrefix.value : "",
         exportFormat: dom.exportFormat ? dom.exportFormat.value : "MP3",
+        exportSrt: dom.exportSrtToggle ? dom.exportSrtToggle.checked : true,
         snapGap: dom.snapGapToggle ? dom.snapGapToggle.checked : true,
         zoom: dom.zoomSlider ? dom.zoomSlider.value : "30",
       },
@@ -1225,15 +1227,26 @@ function updateSegmentsTable() {
       <td class="col-dur"><span class="info-value text-accent">${dur.toFixed(2)} 秒</span></td>
       <td class="col-lyric"><div class="lyric-preview" title="${escapeHtml(containedLyrics)}">${escapeHtml(containedLyrics) || "(純音樂 / 前後奏)"}</div></td>
       <td class="col-action">
-        <button class="btn-play-seg" data-start="${start}" data-end="${end}">
-          ▶ 試聽此段
-        </button>
+        <div class="table-action-group">
+          <button class="btn-play-seg" data-start="${start}" data-end="${end}" title="試聽此片段">
+            ▶ 試聽
+          </button>
+          <button class="btn-export-seg" data-seg-index="${segIndex}" title="單獨切片匯出此段">
+            ⬇️ 匯出
+          </button>
+        </div>
       </td>
     `;
 
     const playSegBtn = tr.querySelector(".btn-play-seg");
     playSegBtn.addEventListener("click", () => {
       playSegment(start, end, playSegBtn);
+    });
+
+    const exportSegBtn = tr.querySelector(".btn-export-seg");
+    const currentSegIdx = segIndex;
+    exportSegBtn.addEventListener("click", () => {
+      exportAudio(currentSegIdx);
     });
 
     dom.segmentsTableBody.appendChild(tr);
@@ -1295,7 +1308,7 @@ function updateSegmentPlayButtons(activeBtn = null) {
       b.textContent = "⏸ 暫停";
       b.classList.add("playing");
     } else {
-      b.textContent = "▶ 試聽此段";
+      b.textContent = "▶ 試聽";
       b.classList.remove("playing");
     }
   });
@@ -1311,14 +1324,21 @@ dom.customPrefix.addEventListener("input", () => {
   saveAppState();
 });
 
-// 匯出並下載 ZIP
-dom.exportBtn.addEventListener("click", async () => {
+// 匯出音訊核心函式 (支援全選批次匯出 或 單片段匯出)
+async function exportAudio(singleIndex = null) {
   if (!state.currentFileId) return;
 
   const format = dom.exportFormat.value;
   const customName = dom.customPrefix.value.trim();
+  const exportSrt = dom.exportSrtToggle ? dom.exportSrtToggle.checked : true;
 
-  showLoading("正在批次切片並打包", `使用 FFmpeg 轉碼為 ${format.toUpperCase()} 格式中...`);
+  const isSingle = singleIndex !== null;
+  const title = isSingle ? `正在匯出片段 #${singleIndex}` : "正在批次切片並打包";
+  const desc = isSingle
+    ? `使用 FFmpeg 轉碼為 ${format.toUpperCase()}${exportSrt ? " 並產生相對時間 SRT 字幕" : ""}...`
+    : `使用 FFmpeg 轉碼為 ${format.toUpperCase()}${exportSrt ? " 並產生各段 SRT 字幕" : ""} 中...`;
+
+  showLoading(title, desc);
 
   try {
     const res = await fetch("/api/export", {
@@ -1329,6 +1349,9 @@ dom.exportBtn.addEventListener("click", async () => {
         cut_points: state.cutPoints,
         format: format,
         custom_name: customName || null,
+        export_srt: exportSrt,
+        sentences: state.sentences || [],
+        single_segment_index: singleIndex,
       }),
     });
 
@@ -1340,19 +1363,39 @@ dom.exportBtn.addEventListener("click", async () => {
     const data = await res.json();
     hideLoading();
 
-    // 觸發 ZIP 下載
-    const downloadLink = document.createElement("a");
-    downloadLink.href = data.zip_download_url;
-    downloadLink.download = "";
-    document.body.appendChild(downloadLink);
-    downloadLink.click();
-    document.body.removeChild(downloadLink);
+    // 觸發下載
+    const downloadUrl = data.download_url || data.zip_download_url;
+    if (downloadUrl) {
+      const downloadLink = document.createElement("a");
+      downloadLink.href = downloadUrl;
+      downloadLink.download = "";
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+    }
 
-    setTemporaryHeaderStatus(`📦 成功切成 ${data.segment_count} 個片段，已開始下載 ZIP！`, "success", 5000);
+    if (isSingle) {
+      setTemporaryHeaderStatus(
+        `⬇️ 片段 #${singleIndex} 匯出成功${exportSrt ? " (含相對時間 SRT)" : ""}！已開始下載`,
+        "success",
+        5000
+      );
+    } else {
+      setTemporaryHeaderStatus(
+        `📦 成功切成 ${data.segment_count} 個片段${exportSrt ? " (含各段相對時間 SRT)" : ""}，已開始下載 ZIP！`,
+        "success",
+        5000
+      );
+    }
   } catch (err) {
     hideLoading();
     setTemporaryHeaderStatus(`❌ 匯出失敗: ${err.message}`, "danger", 5000);
   }
+}
+
+// 點擊批次切片按鈕
+dom.exportBtn.addEventListener("click", () => {
+  exportAudio(null);
 });
 
 // 頁面初始化檢查系統能力
@@ -1533,6 +1576,9 @@ async function restoreAppState() {
     if (s.exportFormat) {
       dom.exportFormat.value = s.exportFormat;
     }
+    if (s.exportSrt !== undefined && dom.exportSrtToggle) {
+      dom.exportSrtToggle.checked = s.exportSrt;
+    }
     if (s.snapGap !== undefined) {
       dom.snapGapToggle.checked = s.snapGap;
     }
@@ -1581,6 +1627,9 @@ dom.detectMode.addEventListener("change", saveAppState);
 dom.lyricTextInput.addEventListener("input", debounce(saveAppState, 400));
 if (dom.savedLyricsSelect) {
   dom.savedLyricsSelect.addEventListener("change", saveAppState);
+}
+if (dom.exportSrtToggle) {
+  dom.exportSrtToggle.addEventListener("change", saveAppState);
 }
 dom.snapGapToggle.addEventListener("change", saveAppState);
 dom.zoomSlider.addEventListener("change", saveAppState);

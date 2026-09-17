@@ -256,6 +256,12 @@
             <label for="customPrefix">自訂檔名前綴：</label>
             <input type="text" id="customPrefix" class="form-input form-input-sm" placeholder="預設使用原檔名">
 
+            <label class="toggle-switch" title="匯出各切片時，自動生成對應該片段相對時間的同名 .srt 字幕檔">
+              <input type="checkbox" id="exportSrtToggle" checked>
+              <span class="toggle-slider"></span>
+              <span class="toggle-label">📄 一併匯出各段 SRT 字幕</span>
+            </label>
+
             <button class="btn btn-success" id="exportBtn" disabled>
               📦 批次切片並下載 ZIP
             </button>

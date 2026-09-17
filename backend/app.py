@@ -115,6 +115,9 @@ class ExportRequest(BaseModel):
     cut_points: List[float]
     format: str = "mp3"  # mp3, wav, m4a
     custom_name: Optional[str] = None
+    export_srt: bool = False
+    sentences: Optional[List[dict]] = None
+    single_segment_index: Optional[int] = None
 
 @app.post("/api/upload")
 async def upload_audio(file: UploadFile = File(...)):
@@ -575,7 +578,7 @@ async def recalculate_cuts(req: RecalculateRequest):
 
 @app.post("/api/export")
 async def export_audio(req: ExportRequest):
-    """根據使用者最終確認的切點批次匯出音訊並打包 ZIP"""
+    """根據使用者最終確認的切點批次匯出音訊並打包 ZIP，或單獨匯出指定片段（可選附帶相對時間 SRT）"""
     session = find_and_restore_session(req.file_id)
     if not session:
         raise HTTPException(status_code=404, detail="找不到指定的音訊資料")
@@ -586,16 +589,48 @@ async def export_audio(req: ExportRequest):
     export_session_id = str(uuid.uuid4())[:8]
     task_output_dir = os.path.join(OUTPUT_DIR, f"export_{export_session_id}")
     
+    # 句子資訊：若前端有傳入則優先使用前端傳入的 sentences，否則使用 session["sentences"]
+    sentences = req.sentences if req.sentences is not None else session.get("sentences", [])
+
     try:
         segments = processor.split_audio(
             input_path=filepath,
             cut_points=req.cut_points,
             output_dir=task_output_dir,
             output_format=req.format,
-            base_name=base_name
+            base_name=base_name,
+            export_srt=req.export_srt,
+            sentences=sentences,
+            single_segment_index=req.single_segment_index
         )
 
-        zip_filename = f"{base_name}_cut_segments_{req.format.lower()}.zip"
+        # 判斷是否為單片段直接下載（未勾選 SRT）
+        if req.single_segment_index is not None and not req.export_srt:
+            if not segments:
+                raise HTTPException(status_code=400, detail="指定的片段索引無效或切片失敗")
+            seg = segments[0]
+            dest_filename = f"{export_session_id}_{seg['filename']}"
+            dest_filepath = os.path.join(OUTPUT_DIR, dest_filename)
+            import shutil
+            shutil.copy2(seg["filepath"], dest_filepath)
+
+            return {
+                "message": f"成功匯出片段 {seg['index']}",
+                "segment_count": 1,
+                "format": req.format.upper(),
+                "segments": segments,
+                "download_url": f"/api/download/{dest_filename}",
+                "zip_download_url": f"/api/download/{dest_filename}",
+                "is_single_file": True
+            }
+
+        # 批次匯出 或 單片段+SRT：打包成 ZIP
+        if req.single_segment_index is not None:
+            seg = segments[0]
+            zip_filename = f"{os.path.splitext(seg['filename'])[0]}.zip"
+        else:
+            zip_filename = f"{base_name}_cut_segments_{req.format.lower()}.zip"
+
         zip_filepath = os.path.join(OUTPUT_DIR, f"{export_session_id}_{zip_filename}")
         processor.create_zip(segments, zip_filepath)
 
@@ -607,19 +642,34 @@ async def export_audio(req: ExportRequest):
         "segment_count": len(segments),
         "format": req.format.upper(),
         "segments": segments,
-        "zip_download_url": f"/api/download/{export_session_id}_{zip_filename}"
+        "zip_download_url": f"/api/download/{export_session_id}_{zip_filename}",
+        "download_url": f"/api/download/{export_session_id}_{zip_filename}",
+        "is_single_file": False
     }
 
 @app.get("/api/download/{filename}")
 async def download_file(filename: str):
-    """下載打包的 ZIP 檔案"""
+    """下載打包的 ZIP 檔案或單一音訊檔案"""
     file_path = os.path.join(OUTPUT_DIR, filename)
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="找不到下載檔案")
+
+    ext = os.path.splitext(filename)[1].lower()
+    media_type = "application/octet-stream"
+    if ext == ".zip":
+        media_type = "application/zip"
+    elif ext == ".mp3":
+        media_type = "audio/mpeg"
+    elif ext == ".wav":
+        media_type = "audio/wav"
+    elif ext in [".m4a", ".aac"]:
+        media_type = "audio/mp4"
+
+    orig_download_name = filename.split("_", 1)[-1] if "_" in filename else filename
     return FileResponse(
         file_path,
-        media_type="application/zip",
-        filename=filename.split("_", 1)[-1] if "_" in filename else filename
+        media_type=media_type,
+        filename=orig_download_name
     )
 
 @app.api_route("/api/audio/{file_id}", methods=["GET", "HEAD"])

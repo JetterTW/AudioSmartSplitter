@@ -1062,9 +1062,15 @@ body {
 }
 
 .segments-table .col-action {
-  width: 105px;
+  width: 160px;
   text-align: center;
   white-space: nowrap;
+}
+
+.table-action-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .empty-hint {
@@ -1076,7 +1082,7 @@ body {
 
 .btn-play-seg {
   white-space: nowrap;
-  padding: 5px 12px;
+  padding: 5px 10px;
   border-radius: 4px;
   font-size: 0.78rem;
   font-weight: 500;
@@ -1099,6 +1105,28 @@ body {
 .btn-play-seg.playing {
   background-color: var(--danger);
   border-color: var(--danger);
+  color: #fff;
+}
+
+.btn-export-seg {
+  white-space: nowrap;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.4);
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+.btn-export-seg:hover {
+  background-color: var(--success);
   color: #fff;
 }
 

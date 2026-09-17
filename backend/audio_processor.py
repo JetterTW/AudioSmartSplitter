@@ -61,7 +61,7 @@ class AudioProcessor:
             "-vn",
             output_path
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="ignore")
         if result.returncode != 0:
             raise RuntimeError(f"Convert to WAV failed: {result.stderr}")
         return output_path
@@ -73,17 +73,59 @@ class AudioProcessor:
         s = seconds % 60
         return f"{m:02d}{s:05.2f}"
 
+    @staticmethod
+    def format_srt_time(seconds: float) -> str:
+        """將秒數轉為標準 SRT 時間戳記 (HH:MM:SS,mmm)"""
+        if seconds < 0:
+            seconds = 0.0
+        millis = int(round(seconds * 1000))
+        hours = millis // 3600000
+        millis %= 3600000
+        minutes = millis // 60000
+        millis %= 60000
+        secs = millis // 1000
+        millis %= 1000
+        return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
+
+    @classmethod
+    def generate_segment_srt_content(cls, sentences: List[Dict[str, Any]], seg_start: float, seg_end: float) -> str:
+        """根據片段起訖時間篩選句子並轉換為相對時間 SRT 字幕"""
+        lines = []
+        sub_idx = 1
+        dur = seg_end - seg_start
+        for s in (sentences or []):
+            s_start = float(s.get("start", 0))
+            s_end = float(s.get("end", 0))
+            s_text = str(s.get("text", "")).strip()
+
+            # 判斷與該片段是否有重疊區間
+            if s_end > seg_start and s_start < seg_end:
+                rel_start = max(0.0, s_start - seg_start)
+                rel_end = min(dur, s_end - seg_start)
+                if rel_end > rel_start + 0.01:
+                    lines.append(f"{sub_idx}")
+                    lines.append(f"{cls.format_srt_time(rel_start)} --> {cls.format_srt_time(rel_end)}")
+                    lines.append(s_text or f"段落 #{sub_idx}")
+                    lines.append("")
+                    sub_idx += 1
+        return "\n".join(lines)
+
     def split_audio(
         self,
         input_path: str,
         cut_points: List[float],
         output_dir: str,
         output_format: str = "mp3",
-        base_name: str = "segment"
+        base_name: str = "segment",
+        export_srt: bool = False,
+        sentences: Optional[List[Dict[str, Any]]] = None,
+        single_segment_index: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """
         根據切點清單將音訊檔精確切片並儲存至 output_dir
         檔名格式範例: L.Y.A.-閃耀舞台-Mastering_part_01-0000.00-0019.83(19.84).m4a
+        若 export_srt 為 True，則一併生成對應之同名 .srt 字幕檔 (相對時間戳記)
+        若 single_segment_index 有指定 (1-based)，則僅切分該指定片段
         """
         os.makedirs(output_dir, exist_ok=True)
         info = self.get_audio_info(input_path)
@@ -95,13 +137,22 @@ class AudioProcessor:
         # 將 0 與總長度加入切點，並去重排序
         points = sorted(list(set([0.0] + [p for p in cut_points if 0.0 < p < total_duration] + [total_duration])))
         
-        # 建立片段區間 [(start, end), ...]
-        segments = []
+        # 建立全部片段區間 [(start, end), ...]
+        all_segments = []
         for i in range(len(points) - 1):
             start = points[i]
             end = points[i + 1]
             if end - start > 0.05:  # 忽略過短切片
-                segments.append((start, end))
+                all_segments.append((start, end))
+
+        # 判斷是否僅匯出單一片段
+        if single_segment_index is not None:
+            if 1 <= single_segment_index <= len(all_segments):
+                target_segments = [(single_segment_index, all_segments[single_segment_index - 1])]
+            else:
+                raise ValueError(f"無效的片段序號 #{single_segment_index}，目前共有 {len(all_segments)} 個片段")
+        else:
+            target_segments = list(enumerate(all_segments, start=1))
 
         output_format = output_format.lower().strip()
         if output_format not in ["mp3", "wav", "m4a"]:
@@ -117,7 +168,7 @@ class AudioProcessor:
             codec_args = ["-c:a", "aac", "-b:a", "256k"]
 
         exported_files = []
-        for idx, (start, end) in enumerate(segments, start=1):
+        for idx, (start, end) in target_segments:
             dur = end - start
             time_tag = f"-{self.format_time_tag(start)}-{self.format_time_tag(end)}({dur:.2f})"
             out_filename = f"{base_name}_part_{idx:02d}{time_tag}.{output_format}"
@@ -133,7 +184,7 @@ class AudioProcessor:
                 "-vn",
             ] + codec_args + [out_filepath]
 
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            result = subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="ignore")
             if result.returncode != 0:
                 # 備用容錯指令
                 cmd = [
@@ -144,14 +195,26 @@ class AudioProcessor:
                     "-to", f"{end:.3f}",
                     "-vn",
                 ] + codec_args + [out_filepath]
-                result = subprocess.run(cmd, capture_output=True, text=True)
+                result = subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="ignore")
                 if result.returncode != 0:
                     raise RuntimeError(f"Failed to export segment {idx}: {result.stderr}")
+
+            # 若需要匯出對應的 SRT 字幕
+            srt_filename = None
+            srt_filepath = None
+            if export_srt:
+                srt_filename = f"{base_name}_part_{idx:02d}{time_tag}.srt"
+                srt_filepath = os.path.join(output_dir, srt_filename)
+                srt_content = self.generate_segment_srt_content(sentences or [], start, end)
+                with open(srt_filepath, "w", encoding="utf-8") as srt_f:
+                    srt_f.write(srt_content)
 
             exported_files.append({
                 "index": idx,
                 "filename": out_filename,
                 "filepath": out_filepath,
+                "srt_filename": srt_filename,
+                "srt_filepath": srt_filepath,
                 "start": round(start, 3),
                 "end": round(end, 3),
                 "duration": round(dur, 3),
@@ -161,12 +224,18 @@ class AudioProcessor:
         return exported_files
 
     def create_zip(self, files: List[Dict[str, Any]], zip_path: str) -> str:
-        """將切片好的檔案打包成 ZIP 壓縮檔"""
+        """將切片好的檔案（音訊與對應之 SRT 字幕）打包成 ZIP 壓縮檔"""
         os.makedirs(os.path.dirname(zip_path), exist_ok=True)
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
             for item in files:
-                fpath = item["filepath"]
-                fname = item["filename"]
-                if os.path.exists(fpath):
-                    zipf.write(fpath, arcname=fname)
+                fpath = item.get("filepath")
+                fname = item.get("filename")
+                if fpath and os.path.exists(fpath):
+                    zipf.write(fpath, arcname=fname or os.path.basename(fpath))
+
+                # 若有對應的 SRT 字幕一併寫入 ZIP
+                srt_path = item.get("srt_filepath")
+                srt_name = item.get("srt_filename")
+                if srt_path and os.path.exists(srt_path):
+                    zipf.write(srt_path, arcname=srt_name or os.path.basename(srt_path))
         return zip_path
