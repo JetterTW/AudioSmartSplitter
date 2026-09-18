@@ -777,8 +777,16 @@ dom.stopBtn.addEventListener("click", () => {
   updateSegmentPlayButtons();
 });
 
-// 空白鍵快捷鍵播放/暫停
+// 鍵盤快捷鍵：空白鍵播放/暫停、Ctrl+S 另存新檔
 document.addEventListener("keydown", (e) => {
+  // Ctrl+S / Cmd+S 另存新檔
+  if ((e.ctrlKey || e.metaKey) && e.code === "KeyS") {
+    e.preventDefault();
+    saveProjectWorkflow();
+    return;
+  }
+
+  // 空白鍵播放/暫停 (避免在輸入框中打字時觸發)
   if (e.code === "Space" && e.target.tagName !== "INPUT" && e.target.tagName !== "TEXTAREA") {
     e.preventDefault();
     if (wavesurfer) {
@@ -1707,7 +1715,7 @@ function buildProjectData(projectName) {
   };
 }
 
-// 儲存工作檔 (使用系統「另存新檔」對話框選取路徑與檔名)
+// 另存新檔 (使用系統「另存新檔」對話框選取本機路徑與檔名)
 async function saveProjectWorkflow() {
   if (!state.currentFileId && state.cutPoints.length === 0) {
     setTemporaryHeaderStatus("⚠️ 目前工作區尚未載入音訊或未產生切點", "warning", 3000);
@@ -1722,12 +1730,12 @@ async function saveProjectWorkflow() {
   if ("showSaveFilePicker" in window) {
     try {
       const fileHandle = await window.showSaveFilePicker({
-        suggestedName: `${defaultBaseName}.assp.json`,
+        suggestedName: `${defaultBaseName}.json`,
         types: [
           {
-            description: "Audio Smart Splitter 工作檔 (*.assp.json, *.json)",
+            description: "Audio Smart Splitter 工作檔 (*.json)",
             accept: {
-              "application/json": [".json", ".assp.json"],
+              "application/json": [".json"],
             },
           },
         ],
@@ -1738,17 +1746,17 @@ async function saveProjectWorkflow() {
       const projectName = chosenFileName.replace(/(\.assp)?\.json$/i, "") || defaultBaseName;
       const projectData = buildProjectData(projectName);
 
-      // 1. 寫入使用者指定的本機路徑
+      // 1. 寫入使用者指定的本機檔案路徑
       const writable = await fileHandle.createWritable();
       await writable.write(JSON.stringify(projectData, null, 2));
       await writable.close();
 
-      // 2. 同步儲存至伺服器專案庫
+      // 2. 同步備份至伺服器專案庫
       try {
         const res = await fetch("/api/projects", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(projectData)
+          body: JSON.stringify(projectData),
         });
         if (res.ok) {
           const savedResult = await res.json();
@@ -1759,7 +1767,7 @@ async function saveProjectWorkflow() {
         console.warn("同步至伺服器專案庫失敗:", e);
       }
 
-      setTemporaryHeaderStatus(`💾 已另存工作檔：${chosenFileName}`, "success", 4000);
+      setTemporaryHeaderStatus(`💾 已成功另存新檔：${chosenFileName}`, "success", 4000);
       return;
     } catch (err) {
       if (err.name === "AbortError") {
@@ -1770,18 +1778,18 @@ async function saveProjectWorkflow() {
     }
   }
 
-  // 備用方案 (若瀏覽器不支援 showSaveFilePicker)
-  const projName = prompt("請輸入工作檔 (專案) 名稱：", defaultBaseName);
+  // 備用方案 (若瀏覽器處於非 HTTPS/非本機環境或不支援 showSaveFilePicker)
+  const projName = prompt("【另存新檔】請輸入要儲存的工作檔名稱：", defaultBaseName);
   if (!projName || !projName.trim()) return;
 
   const projectData = buildProjectData(projName.trim());
-  showLoading("儲存工作檔", `正在儲存專案「${projectData.project_name}」...`);
+  showLoading("另存工作檔", `正在另存專案「${projectData.project_name}」...`);
 
   try {
     const res = await fetch("/api/projects", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(projectData)
+      body: JSON.stringify(projectData),
     });
 
     if (!res.ok) {
@@ -1793,12 +1801,12 @@ async function saveProjectWorkflow() {
     state.currentProjectId = savedResult.project_id;
     projectData.project_id = savedResult.project_id;
 
-    // 瀏覽器觸發下載備份
+    // 瀏覽器觸發下載另存至本機電腦
     const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${projectData.project_name}.assp.json`;
+    a.download = `${projectData.project_name}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1807,10 +1815,10 @@ async function saveProjectWorkflow() {
     await fetchSavedProjects(savedResult.project_id);
     hideLoading();
 
-    setTemporaryHeaderStatus(`💾 工作檔「${projectData.project_name}」已儲存`, "success", 4000);
+    setTemporaryHeaderStatus(`💾 工作檔「${projectData.project_name}.json」已另存至電腦`, "success", 4000);
   } catch (err) {
     hideLoading();
-    setTemporaryHeaderStatus(`❌ 儲存失敗: ${err.message}`, "danger", 4000);
+    setTemporaryHeaderStatus(`❌ 另存新檔失敗: ${err.message}`, "danger", 4000);
   }
 }
 
