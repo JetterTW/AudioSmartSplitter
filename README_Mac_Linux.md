@@ -1,4 +1,4 @@
-# Audio Smart Splitter v1.1.2 (macOS & Linux 快速啟動指南)
+# Audio Smart Splitter v1.1.5 (macOS & Linux 快速啟動指南)
 
 本軟體支援在 **macOS (Intel / Apple Silicon M1~M4)** 及 **各大 Linux 發行版 (Ubuntu, Debian, Fedora, Arch)** 上直接執行！
 

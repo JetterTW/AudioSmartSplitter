@@ -34,7 +34,7 @@ def open_browser():
 
 def main():
     print("=" * 60)
-    print("   Audio Smart Splitter v1.1.2 (綠色可攜獨立版)")
+    print("   Audio Smart Splitter v1.1.5 (綠色可攜獨立版)")
     print("   AI 智慧歌詞斷句音訊切片工作站")
     print("=" * 60)
     print("[*] 服務位址: http://127.0.0.1:8128 (亦可由區域網路 IP 連線)")

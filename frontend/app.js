@@ -1693,7 +1693,7 @@ function buildProjectData(projectName) {
   return {
     project_id: state.currentProjectId || null,
     project_name: projectName,
-    project_version: "1.1.2",
+    project_version: "1.1.5",
     created_at: new Date().toISOString(),
     audio: {
       file_id: state.currentFileId,

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==========================================================
-# Audio Smart Splitter v1.1.2 (macOS & Linux 啟動腳本)
+# Audio Smart Splitter v1.1.5 (macOS & Linux 啟動腳本)
 # ==========================================================
 
 set -e
@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 echo "=========================================================="
-echo "   Audio Smart Splitter v1.1.2"
+echo "   Audio Smart Splitter v1.1.5"
 echo "   AI 智慧歌詞斷句音訊切片工作站 (macOS / Linux)"
 echo "=========================================================="
 

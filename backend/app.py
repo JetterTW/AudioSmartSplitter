@@ -45,7 +45,7 @@ os.makedirs(LYRICS_DIR, exist_ok=True)
 os.makedirs(PROJECTS_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-app = FastAPI(title="Audio AI Smart Splitter API", version="1.1.2")
+app = FastAPI(title="Audio AI Smart Splitter API", version="1.1.5")
 
 app.add_middleware(
     CORSMiddleware,
@@ -391,7 +391,7 @@ async def save_project(req: SaveProjectRequest):
     data = {
         "project_id": project_id,
         "project_name": req.project_name,
-        "project_version": "1.1.2",
+        "project_version": "1.1.5",
         "updated_at": now_str,
         "audio": req.audio,
         "detection": req.detection,
