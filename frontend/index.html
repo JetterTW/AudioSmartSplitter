@@ -303,6 +303,30 @@
       </div>
     </div>
 
+    <!-- 另存新檔自訂對話框 (支援非本機 / 跨網段 / 所有瀏覽器) -->
+    <div class="modal-overlay" id="saveAsModal" style="display: none;">
+      <div class="modal-card save-as-card">
+        <div class="modal-card-header">
+          <h3>💾 另存工作檔 (Save As)</h3>
+          <button class="modal-card-close" id="closeSaveAsModalBtn" title="關閉">&times;</button>
+        </div>
+        <div class="modal-card-body">
+          <label for="saveAsNameInput" class="modal-label">工作檔名稱：</label>
+          <div class="modal-input-group">
+            <input type="text" id="saveAsNameInput" class="form-input" placeholder="請輸入專案名稱">
+            <span class="modal-ext-badge">.json</span>
+          </div>
+          <p class="modal-hint">
+            💡 將完整保存當前所有切點位置、歌詞斷句、秒數設定與音訊關聯，方便隨時在任意裝置「開啟舊檔」繼續編輯。
+          </p>
+        </div>
+        <div class="modal-card-footer">
+          <button class="btn btn-outline" id="cancelSaveAsBtn">取消</button>
+          <button class="btn btn-primary" id="confirmSaveAsBtn">💾 另存為新檔</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 全視窗拖曳上傳提示遮罩 -->
     <div class="global-drag-overlay" id="globalDragOverlay">
       <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2">

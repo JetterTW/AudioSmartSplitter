@@ -81,6 +81,11 @@ const dom = {
   saveProjectBtn: document.getElementById("saveProjectBtn"),
   importProjectBtn: document.getElementById("importProjectBtn"),
   projectFileInput: document.getElementById("projectFileInput"),
+  saveAsModal: document.getElementById("saveAsModal"),
+  saveAsNameInput: document.getElementById("saveAsNameInput"),
+  closeSaveAsModalBtn: document.getElementById("closeSaveAsModalBtn"),
+  cancelSaveAsBtn: document.getElementById("cancelSaveAsBtn"),
+  confirmSaveAsBtn: document.getElementById("confirmSaveAsBtn"),
 };
 
 let statusTimer = null;
@@ -1715,7 +1720,7 @@ function buildProjectData(projectName) {
   };
 }
 
-// 另存新檔 (使用系統「另存新檔」對話框選取本機路徑與檔名)
+// 另存新檔 (支援本機系統原生另存對話框，以及跨網段/非本機暗黑對話框)
 async function saveProjectWorkflow() {
   if (!state.currentFileId && state.cutPoints.length === 0) {
     setTemporaryHeaderStatus("⚠️ 目前工作區尚未載入音訊或未產生切點", "warning", 3000);
@@ -1726,7 +1731,7 @@ async function saveProjectWorkflow() {
     ? `${state.currentFileName.replace(/\.[^/.]+$/, "")}_切片專案`
     : "音訊切片專案";
 
-  // 優先使用現代瀏覽器原生的系統「另存新檔 (Save As)」對話框
+  // 1. 若環境支援 File System Access API (本機 localhost 或 HTTPS)，優先呼叫系統原生「另存新檔」檔案總管視窗
   if ("showSaveFilePicker" in window) {
     try {
       const fileHandle = await window.showSaveFilePicker({
@@ -1746,26 +1751,13 @@ async function saveProjectWorkflow() {
       const projectName = chosenFileName.replace(/(\.assp)?\.json$/i, "") || defaultBaseName;
       const projectData = buildProjectData(projectName);
 
-      // 1. 寫入使用者指定的本機檔案路徑
+      // 寫入使用者指定的本機檔案路徑
       const writable = await fileHandle.createWritable();
       await writable.write(JSON.stringify(projectData, null, 2));
       await writable.close();
 
-      // 2. 同步備份至伺服器專案庫
-      try {
-        const res = await fetch("/api/projects", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(projectData),
-        });
-        if (res.ok) {
-          const savedResult = await res.json();
-          state.currentProjectId = savedResult.project_id;
-          await fetchSavedProjects(savedResult.project_id);
-        }
-      } catch (e) {
-        console.warn("同步至伺服器專案庫失敗:", e);
-      }
+      // 同步備份至伺服器專案庫
+      syncProjectToServer(projectData);
 
       setTemporaryHeaderStatus(`💾 已成功另存新檔：${chosenFileName}`, "success", 4000);
       return;
@@ -1774,51 +1766,79 @@ async function saveProjectWorkflow() {
         // 使用者點擊「取消」另存新檔
         return;
       }
-      console.warn("showSaveFilePicker 不支援或發生例外，切換至備用存檔模式:", err);
+      console.warn("showSaveFilePicker 不支援或處於跨網段 HTTP，切換至另存新檔對話框:", err);
     }
   }
 
-  // 備用方案 (若瀏覽器處於非 HTTPS/非本機環境或不支援 showSaveFilePicker)
-  const projName = prompt("【另存新檔】請輸入要儲存的工作檔名稱：", defaultBaseName);
-  if (!projName || !projName.trim()) return;
+  // 2. 跨網段 / 非本機 / HTTP 環境：開啟專屬「另存工作檔」對話框
+  openSaveAsModal(defaultBaseName);
+}
 
-  const projectData = buildProjectData(projName.trim());
-  showLoading("另存工作檔", `正在另存專案「${projectData.project_name}」...`);
+// 開啟跨網段/非本機另存新檔對話框
+function openSaveAsModal(defaultName) {
+  if (!dom.saveAsModal) return;
+  dom.saveAsNameInput.value = defaultName;
+  dom.saveAsModal.style.display = "flex";
+  setTimeout(() => {
+    dom.saveAsNameInput.focus();
+    dom.saveAsNameInput.select();
+  }, 100);
+}
 
+function closeSaveAsModal() {
+  if (dom.saveAsModal) {
+    dom.saveAsModal.style.display = "none";
+  }
+}
+
+// 執行另存新檔並下載
+async function executeSaveAsDownload() {
+  const inputName = dom.saveAsNameInput.value.trim();
+  const defaultBaseName = state.currentFileName
+    ? `${state.currentFileName.replace(/\.[^/.]+$/, "")}_切片專案`
+    : "音訊切片專案";
+  const projectName = inputName || defaultBaseName;
+
+  closeSaveAsModal();
+  showLoading("另存工作檔", `正在另存工作檔「${projectName}」...`);
+
+  const projectData = buildProjectData(projectName);
+
+  // 1. 同步備份至伺服器
+  await syncProjectToServer(projectData);
+
+  // 2. 觸發本機下載
+  const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${projectName}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  hideLoading();
+  setTemporaryHeaderStatus(`💾 工作檔已另存至電腦：${projectName}.json`, "success", 4000);
+}
+
+// 同步工作檔至伺服器專案庫
+async function syncProjectToServer(projectData) {
   try {
     const res = await fetch("/api/projects", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(projectData),
     });
-
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || "儲存專案失敗");
+    if (res.ok) {
+      const savedResult = await res.json();
+      state.currentProjectId = savedResult.project_id;
+      if (typeof fetchSavedProjects === "function") {
+        await fetchSavedProjects(savedResult.project_id);
+      }
     }
-
-    const savedResult = await res.json();
-    state.currentProjectId = savedResult.project_id;
-    projectData.project_id = savedResult.project_id;
-
-    // 瀏覽器觸發下載另存至本機電腦
-    const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${projectData.project_name}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    await fetchSavedProjects(savedResult.project_id);
-    hideLoading();
-
-    setTemporaryHeaderStatus(`💾 工作檔「${projectData.project_name}.json」已另存至電腦`, "success", 4000);
-  } catch (err) {
-    hideLoading();
-    setTemporaryHeaderStatus(`❌ 另存新檔失敗: ${err.message}`, "danger", 4000);
+  } catch (e) {
+    console.warn("同步至伺服器專案庫失敗:", e);
   }
 }
 
@@ -1987,6 +2007,27 @@ if (dom.deleteProjectBtn) {
     const projId = dom.savedProjectsSelect ? dom.savedProjectsSelect.value : null;
     if (projId) {
       deleteProjectWorkflow(projId);
+    }
+  });
+}
+
+// 另存新檔 Modal 事件綁定
+if (dom.closeSaveAsModalBtn) {
+  dom.closeSaveAsModalBtn.addEventListener("click", closeSaveAsModal);
+}
+if (dom.cancelSaveAsBtn) {
+  dom.cancelSaveAsBtn.addEventListener("click", closeSaveAsModal);
+}
+if (dom.confirmSaveAsBtn) {
+  dom.confirmSaveAsBtn.addEventListener("click", executeSaveAsDownload);
+}
+if (dom.saveAsNameInput) {
+  dom.saveAsNameInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      executeSaveAsDownload();
+    } else if (e.key === "Escape") {
+      closeSaveAsModal();
     }
   });
 }
